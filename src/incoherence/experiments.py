@@ -47,7 +47,7 @@ def run_qv_diagnostics():
     print_policy(mdp, new_policy)
     print('J', compute_J(mdp, new_policy))
 
-TEMP_INCOH: float = 0.15
+TEMP_INCOH: float = 0.8
 
 @dataclass
 class Result:

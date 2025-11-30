@@ -429,6 +429,8 @@ def print_effective_horizon_summary(
     print(f"  J* (optimal)    = {incoh_info['J_star']:.4f}")
 
 
+    print(f"FINAL: env {name} H_k {H_hat:.3f} unif-incoh {incoh_info['kappa_uniform']:.6f} cond-incoh {incoh_info['kappa_piG']:.6f}")
+
 def run_demo(T, A, num, seed_start) -> None:
     # 1) Two-cards game as a sanity check / simple example
     # two_cards = create_two_cards_game()
@@ -465,26 +467,46 @@ def run_demo(T, A, num, seed_start) -> None:
         name = f"random_T{T}_A{A}_seed{seed}"
         print_effective_horizon_summary(name, H_hat, results, incoh_info)
 
+turn = 0
+run_demo(T=2, A=2, num=5, seed_start=15 * turn)
+run_demo(T=2, A=2, num=5, seed_start=2*20 * turn)
+run_demo(T=2, A=2, num=5, seed_start=3*25 * turn)
+run_demo(T=2, A=2, num=5, seed_start=4*30 * turn)
 
-run_demo(T=4, A=3, num=5, seed_start=15)
-run_demo(T=4, A=3, num=5, seed_start=2*20)
-run_demo(T=4, A=3, num=5, seed_start=3*25)
-run_demo(T=4, A=3, num=5, seed_start=4*30)
+turn += 2
+run_demo(T=3, A=2, num=5, seed_start=15 * turn)
+run_demo(T=3, A=2, num=5, seed_start=2*20 * turn)
+run_demo(T=3, A=2, num=5, seed_start=3*25 * turn)
+run_demo(T=3, A=2, num=5, seed_start=4*30 * turn)
 
-run_demo(T=5, A=2, num=5, seed_start=15)
-run_demo(T=5, A=2, num=5, seed_start=2*20)
-run_demo(T=5, A=2, num=5, seed_start=3*25)
-run_demo(T=5, A=2, num=5, seed_start=4*30)
+turn += 2
+run_demo(T=4, A=2, num=5, seed_start=15 * turn)
+run_demo(T=4, A=2, num=5, seed_start=2*20 * turn)
+run_demo(T=4, A=2, num=5, seed_start=3*25 * turn)
+run_demo(T=4, A=2, num=5, seed_start=4*30 * turn)
 
-run_demo(T=6, A=2, num=5, seed_start=15)
-run_demo(T=6, A=2, num=5, seed_start=2*20)
-run_demo(T=6, A=2, num=5, seed_start=3*25)
-run_demo(T=6, A=2, num=5, seed_start=4*30)
+turn += 2
+run_demo(T=4, A=3, num=5, seed_start=15 * turn)
+run_demo(T=4, A=3, num=5, seed_start=2*20 * turn)
+run_demo(T=4, A=3, num=5, seed_start=3*25 * turn)
+run_demo(T=4, A=3, num=5, seed_start=4*30 * turn)
 
-run_demo(T=3, A=4, num=5, seed_start=15)
-run_demo(T=3, A=4, num=5, seed_start=2*20)
-run_demo(T=3, A=4, num=5, seed_start=3*25)
-run_demo(T=3, A=4, num=5, seed_start=4*30)
+turn += 2
+run_demo(T=5, A=2, num=5, seed_start=15 * turn)
+run_demo(T=5, A=2, num=5, seed_start=2*20 * turn)
+run_demo(T=5, A=2, num=5, seed_start=3*25 * turn)
+run_demo(T=5, A=2, num=5, seed_start=4*30 * turn)
 
+turn += 2
+run_demo(T=6, A=2, num=5, seed_start=15 * turn)
+run_demo(T=6, A=2, num=5, seed_start=2*20 * turn)
+run_demo(T=6, A=2, num=5, seed_start=3*25 * turn)
+run_demo(T=6, A=2, num=5, seed_start=4*30 * turn)
+
+turn += 2
+run_demo(T=3, A=4, num=5, seed_start=15 * turn)
+run_demo(T=3, A=4, num=5, seed_start=2*20 * turn)
+run_demo(T=3, A=4, num=5, seed_start=3*25 * turn)
+run_demo(T=3, A=4, num=5, seed_start=4*30 * turn)
 
 # %%

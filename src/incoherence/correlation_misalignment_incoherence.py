@@ -189,7 +189,6 @@ def run_alignment_vs_incoherence(
       - compute incoherence of the naively goal-conditioned policy G(p)
       - report correlation between misalignment and incoherence
     """
-    print("A")
     if seed is not None:
         np.random.seed(seed)
 
@@ -198,10 +197,7 @@ def run_alignment_vs_incoherence(
     j_naive_vals: list[float] = []
     j_star_vals: list[float] = []
 
-    # print("idx | alignment | incoh( G(p) ) | J_naive | J_star")
-    # print("-" * 70)
-
-    for idx in range(num_mdps):
+    for _ in range(num_mdps):
         mdp = create_random_mdp(A, T, deterministic_transitions=True)
         uniform = make_uniform_policy(mdp)
 
@@ -224,11 +220,6 @@ def run_alignment_vs_incoherence(
         j_naive_vals.append(J_naive)
         j_star_vals.append(J_star)
 
-        # print(
-        #     f"{idx:3d} | {alignment:9.4f} | {incoh:13.6f} | "
-        #     f"{J_naive:7.3f} | {J_star:7.3f}"
-        # )
-
     align_arr = np.array(alignments)
     incoh_arr = np.array(incoherences)
 
@@ -243,6 +234,6 @@ def run_alignment_vs_incoherence(
         f"{corr:.4f}"
     )
 # %%
-for temp in [.15, .3, .5, .8, .9, .95]:
+for temp in [.1, .3, .5, .8, 1, 2, 4, 8]:
     run_alignment_vs_incoherence(temp=temp)
 # %%

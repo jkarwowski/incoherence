@@ -11,8 +11,9 @@ def H(p: P):
 
 def forward_kl_divergence_P(p: P, q: P) -> float:
     """Computes the KL divergence D(p || q) for two probability distributions."""
+    eps = 1e-12
     return sum(
-        (p.dist[k] * np.log(p.dist[k] / q.dist[k]))
+        (p.dist[k] * np.log(p.dist[k] / max(q.dist[k], eps)))
         for k in p.dist.keys()
         if p.dist[k] != 0
     )

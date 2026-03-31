@@ -52,6 +52,16 @@ def retrain_agent(mdp: MDP, policy: Policy):
     return conditioned_policy
 
 
+def iterate_G(mdp: MDP, policy: Policy, iterations: int) -> list[Policy]:
+    """Convenience helper that applies the control-as-inference operator repeatedly."""
+    history = [policy]
+    current = policy
+    for _ in range(iterations):
+        current = retrain_agent(mdp, current)
+        history.append(current)
+    return history
+
+
 def retrain_agent_filter(mdp: MDP, policy: Policy):
     """Collects roll-outs, filters them based on rewards, and updates the policy."""
     trajectories = compute_prob_over_trajectories(mdp, policy)

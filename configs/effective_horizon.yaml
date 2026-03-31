@@ -1,0 +1,38 @@
+results_dir: results
+global_seed: 0
+temperature: 1.0
+env_specs:
+  - name: T2_A2
+    horizon: 2
+    num_actions: 2
+    num_instances: 20
+  - name: T3_A2
+    horizon: 3
+    num_actions: 2
+    num_instances: 20
+  - name: T4_A2
+    horizon: 4
+    num_actions: 2
+    num_instances: 20
+  - name: T4_A3
+    horizon: 4
+    num_actions: 3
+    num_instances: 20
+  - name: T5_A2
+    horizon: 5
+    num_actions: 2
+    num_instances: 20
+  - name: T6_A2
+    horizon: 6
+    num_actions: 2
+    num_instances: 20
+  - name: T3_A4
+    horizon: 3
+    num_actions: 4
+    num_instances: 20
+  
+effective_horizon:
+  ks: [1, 2, 3, 4]
+  success_threshold: 0.5
+  m_max: 256
+  n_runs: 500

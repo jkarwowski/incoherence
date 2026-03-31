@@ -8,9 +8,9 @@ from incoherence.policy import boltzmann_incoherence_causal
 
 def run_incoherence_vs_return_random_mdps(
     num_mdps: int = 50,
-    retrain_steps: int = 5,
+    retrain_steps: int = 4,
     T: int = 4,
-    A: int = 3,
+    A: int = 4,
     temp: float = TEMP_INCOH,
     seed: int | None = 0,
 ) -> None:
@@ -34,7 +34,7 @@ def run_incoherence_vs_return_random_mdps(
     total_pairs = 0
 
     for mdp_idx in range(num_mdps):
-        mdp = create_random_mdp(A, T, deterministic_transitions=True)
+        mdp = create_random_mdp(A, T, deterministic_transitions=False)
         # Run the retraining dynamics defined in the paper
         results = run_retrain(retrain_steps, mdp=mdp)
 

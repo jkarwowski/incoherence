@@ -182,7 +182,7 @@ def test_state_num(actions_num=4):
         assert num == i
 
 
-def create_random_mdp(actions_num: int, time_horizon: int, deterministic_transitions: bool, seed: int = None):
+def create_random_mdp(actions_num: int, time_horizon: int, deterministic_transitions: bool, seed: None | int = None):
     # sample the transition dynamics and rewards randomly
     # states are strings in a form f"{a_0}{a_1}, ..., {a_t}" where t < time_horizon
     # for example, states for 2-action, 2-time horizon MDP are "0", "1", "00", "01", "10", "11"

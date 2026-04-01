@@ -80,7 +80,7 @@ def plot_effective_horizon(
         ys_cond.append(float(record["metrics"]["kappa_piG"]))
         sizes.append(size_metric.get(record["spec_name"], 0.0))
     if not xs:
-        return
+        raise Exception("Empty xs")
 
     xs = np.array(xs)
     ys_uniform = np.array(ys_uniform)

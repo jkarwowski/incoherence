@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from incoherence.distributions import bernoulli
 from incoherence.experiments import (
+    EnvSpec,
     StrongReturnConfig,
     generate_instances,
     load_strong_return_config,
@@ -35,7 +36,7 @@ def _return_history(mdp, max_iterations: int) -> List[float]:
     return [float(compute_J(mdp, policy)) for policy in policies]
 
 
-def _collect_trajectories(specs: Iterable, global_seed: int, max_iterations: int) -> List[dict]:
+def _collect_trajectories(specs: Sequence[EnvSpec], global_seed: int, max_iterations: int) -> List[dict]:
     trajectories: List[dict] = []
     instances = generate_instances(specs, global_seed)
     for inst in instances:

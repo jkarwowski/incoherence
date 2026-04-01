@@ -241,28 +241,46 @@ def plot_misalignment(results: List[dict], path: Path) -> None:
     plt.close(fig)
 
 
-def plot_misalignment_scatter(instances: List[dict], temperature: float, path: Path) -> None:
+def plot_misalignment_scatter(
+    instances: List[dict],
+    temperature: float,
+    path: Path,
+    size_metric: Mapping[str, float] | None = None,
+) -> None:
     if not instances:
         return
     x = np.array([float(inst["misalignment"]) for inst in instances])
     y = np.array([float(inst["incoherence"]) for inst in instances])
+    sizes = (
+        np.array([float(size_metric.get(inst["spec_name"], 0.0)) for inst in instances])
+        if size_metric is not None
+        else None
+    )
+    if sizes is not None and np.ptp(sizes) == 0:
+        sizes = None
+
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.scatter(x, y, color="C0", alpha=0.75, edgecolor="none")
+    if sizes is None:
+        ax.scatter(x, y, color="C0", alpha=0.75, edgecolor="none")
+    else:
+        norm = colors.Normalize(vmin=sizes.min(), vmax=sizes.max())
+        cmap = _truncated_blues()
+        colors_arr = cmap(norm(sizes))
+        ax.scatter(x, y, c=colors_arr, alpha=0.85, edgecolor="none")
+        mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
+        mappable.set_array(sizes)
+        cbar = plt.colorbar(mappable, ax=ax)
+        cbar.set_label("MDP size")
+
     slope, intercept = np.polyfit(x, y, 1)
     x_line = np.linspace(x.min(), x.max(), 200)
-    # ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", linewidth=1.5)
     corr = np.corrcoef(x, y)[0, 1]
-    if np.isnan(corr):
-        label = f"slope={slope:.3f}"
-    else:
-        label = f"slope={slope:.3f}, corr={corr:.3f}"
+    label = f"slope={slope:.3f}, r={corr:.3f}" if not np.isnan(corr) else f"slope={slope:.3f}"
     ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", label=label)
     ax.legend(loc="best", fontsize="small")
-    ax.set_xlabel("Policy misalignment")
+    ax.set_xlabel("Policy misalignment (1 - alignment)")
     ax.set_ylabel(r"Incoherence $\kappa_\delta$")
-    # ax.set_title(f"Misalignment vs. incoherence (temperature {temperature:g})")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)
-    print(f"Size: {len(x)}")

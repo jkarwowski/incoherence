@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import math
 
+from incoherence.mdp import create_random_mdp
+
 from incoherence.experiments import (
     generate_instances,
     load_misalignment_config,
@@ -17,8 +19,23 @@ from incoherence.correlation_misalignment_incoherence import (
 )
 
 
+def _size_metric(env_specs, seed: int) -> dict[str, float]:
+    metric: dict[str, float] = {}
+    for idx, spec in enumerate(env_specs):
+        mdp = create_random_mdp(
+            spec.num_actions,
+            spec.horizon,
+            deterministic_transitions=spec.deterministic,
+            seed=seed + idx,
+        )
+        total_slots = float(sum(len(actions) for actions in mdp.actions.values()))
+        metric[spec.name] = total_slots
+    return metric
+
+
 def run(config_path: Path) -> Path:
     config = load_misalignment_config(config_path)
+    size_metric = _size_metric(config.env_specs, config.global_seed)
     instances = generate_instances(config.env_specs, config.global_seed)
     records = records_from_instances(instances)
     config.dataset_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +66,12 @@ def run(config_path: Path) -> Path:
             continue
         if math.isclose(entry["temperature"], target_temp, rel_tol=1e-9, abs_tol=1e-9):
             scatter_path = config.results_dir / "misalignment_vs_incoherence_temp1.png"
-            plot_misalignment_scatter(entry.get("instances", []), entry["temperature"], scatter_path)
+            plot_misalignment_scatter(
+                entry.get("instances", []),
+                entry["temperature"],
+                scatter_path,
+                size_metric=size_metric,
+            )
             break
     return output_path
 

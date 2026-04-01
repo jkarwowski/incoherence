@@ -7,6 +7,7 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import colors
 from numpy.random import SeedSequence, default_rng
 
 from incoherence.distributions import bernoulli
@@ -20,9 +21,24 @@ def _kappa(mdp, policy, temperature: float) -> float:
     return float(boltzmann_incoherence_causal(mdp, policy, temperature))
 
 
-def _collect_policies(mdp, max_iterations: int) -> List:
+MIN_REWARD_PROB = 1e-3
+
+
+def collect_policies(mdp, max_iterations: int) -> List:
     initial = make_uniform_policy(mdp)
-    return list(iterate_G(mdp, initial, max_iterations))[1:]
+    return list(iterate_G(mdp, initial, max_iterations))
+
+
+def clip_reward_support(mdp) -> None:
+    """Ensure reward probabilities avoid exact 0/1 to keep KL finite."""
+    for state in mdp.states:
+        actions = mdp.rewards[state]
+        if not actions:
+            continue
+        for action, reward_dist in actions.items():
+            prob = float(reward_dist.dist[1])
+            prob = float(np.clip(prob, MIN_REWARD_PROB, 1.0 - MIN_REWARD_PROB))
+            mdp.rewards[state][action] = bernoulli(prob)
 
 
 def run(config_path: Path) -> Path:
@@ -45,15 +61,8 @@ def run(config_path: Path) -> Path:
                 seed=seed,
             )
             if spec.deterministic:
-                for state in mdp.states:
-                    actions = mdp.rewards[state]
-                    if not actions:
-                        continue
-                    best_action = max(actions.keys(), key=lambda a: actions[a].dist[1])
-                    for action, reward_dist in actions.items():
-                        deterministic_prob = 1.0 if action == best_action else 0.0
-                        mdp.rewards[state][action] = bernoulli(deterministic_prob)
-            policies = _collect_policies(mdp, config.max_iterations)
+                clip_reward_support(mdp)
+            policies = collect_policies(mdp, config.max_iterations)
             kappa_history = [_kappa(mdp, policy, config.temperature) for policy in policies]
             returns_history = [float(compute_J(mdp, policy)) for policy in policies]
             results.append(
@@ -128,23 +137,30 @@ def _plot_corollaries(results: List[dict], config) -> None:
         deterministic_transitions=True,
         seed=seed,
     )
-    for state in mdp.states:
-        for action, reward_dist in mdp.rewards[state].items():
-            prob = reward_dist.dist[1]
-            mdp.rewards[state][action] = bernoulli(1.0 if prob >= 0.5 else 0.0)
+    clip_reward_support(mdp)
 
-    policies = _collect_policies(mdp, config.max_iterations)
+    policies = collect_policies(mdp, config.max_iterations)
 
     deltas = config.deltas or (config.temperature,)
     iterations = np.arange(config.max_iterations + 1)
 
     fig_delta, ax_delta = plt.subplots(figsize=(6, 4))
-    for delta in deltas:
+    cmap = plt.get_cmap("Blues")
+    norm = colors.Normalize(vmin=min(deltas), vmax=max(deltas))
+    for delta in sorted(deltas, reverse=True):
         kappas = [_kappa(mdp, policy, delta) for policy in policies]
-        ax_delta.plot(iterations, kappas, marker="o", label=f"δ={delta}")
+        shade = 0.2 + 0.8 * norm(delta)
+        ax_delta.plot(
+            iterations,
+            kappas,
+            marker="o",
+            label=f"δ={delta:g}",
+            color=cmap(shade),
+            linewidth=2,
+        )
     ax_delta.set_xlabel("Iteration")
     ax_delta.set_ylabel(r"Incoherence $\kappa_\delta$")
-    ax_delta.set_title("Corollary 5.11: κ→0 as iterations increase")
+    ax_delta.set_title("Corollary 5.11: temperature vs. iterations")
     ax_delta.grid(True, alpha=0.3)
     ax_delta.legend(loc="best", fontsize="small")
     fig_delta.tight_layout()
@@ -155,18 +171,31 @@ def _plot_corollaries(results: List[dict], config) -> None:
     delta_returns = np.diff(returns)
     scaled = np.arange(1, len(returns)) * delta_returns
 
-    fig_return, ax_return = plt.subplots(figsize=(6, 4))
-    ax_return.plot(np.arange(len(returns)), returns, marker="o", label="Return")
-    ax_right = ax_return.twinx()
-    ax_right.plot(np.arange(1, len(returns)), delta_returns, marker="s", color="C1", label="ΔJ")
-    ax_right.plot(np.arange(1, len(returns)), scaled, marker="^", color="C2", label="k·ΔJ")
-    ax_return.set_xlabel("Iteration")
-    ax_return.set_ylabel("Return J")
-    ax_right.set_ylabel("Differences")
-    ax_return.set_title("Corollary 5.10: return improvement rate")
-    ax_return.grid(True, alpha=0.3)
-    ax_return.legend(loc="upper left", fontsize="small")
-    ax_right.legend(loc="upper right", fontsize="small")
+    fig_return, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(6, 6), sharex=True)
+
+    iterations_full = np.arange(len(returns))
+    ax_top.plot(iterations_full, returns, marker="o", color="C0", linewidth=2)
+    ax_top.set_ylabel("Return $J$")
+    ax_top.set_title("Corollary 5.10: Strong return improvement")
+    ax_top.grid(True, alpha=0.3)
+
+    steps = np.arange(1, len(returns))
+    ax_bottom.plot(steps, delta_returns, marker="s", color="C1", linewidth=2, label=r"ΔJ$_k$")
+    ax_bottom.plot(
+        steps,
+        scaled,
+        marker="^",
+        color="C2",
+        linewidth=2,
+        linestyle="--",
+        label=r"$k·ΔJ_k$",
+    )
+    ax_bottom.axhline(0.0, color="black", linestyle=":", linewidth=1.0, alpha=0.4)
+    ax_bottom.set_xlabel("Iteration $k$")
+    ax_bottom.set_ylabel("Improvement")
+    ax_bottom.grid(True, alpha=0.3)
+    ax_bottom.legend(loc="best", fontsize="small")
+
     fig_return.tight_layout()
     fig_return.savefig(config.results_dir / "corollary_5_10.png")
     plt.close(fig_return)

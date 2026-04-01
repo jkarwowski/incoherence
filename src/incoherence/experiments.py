@@ -17,6 +17,7 @@ from typing import Dict, Iterable, List, Mapping, Sequence
 import numpy as np
 import yaml
 from matplotlib import pyplot as plt
+from numpy.random import SeedSequence, default_rng
 
 from .mdp import (
     MDP,
@@ -161,7 +162,9 @@ def load_misalignment_config(path: Path) -> MisalignmentConfig:
     global_seed = int(data.get("global_seed", 0))
     results_dir = _resolve_path(data.get("results_dir"), DEFAULT_RESULTS_DIR)
     results_dir.mkdir(parents=True, exist_ok=True)
-    dataset_path = _resolve_path(data.get("dataset"), results_dir / "effective_horizon.json")
+    dataset_path = _resolve_path(
+        data.get("dataset"), results_dir / "misalignment_instances.json"
+    )
     return MisalignmentConfig(
         env_specs=env_specs,
         temperatures=temperatures,
@@ -188,6 +191,36 @@ def instances_from_records(records: Iterable[Mapping], env_specs: Sequence[EnvSp
             raise KeyError(f"Unknown env spec '{spec_name}' in dataset; update configuration.")
         instances.append(EnvInstance(spec=spec_by_name[spec_name], seed=int(record["seed"])))
     return instances
+
+
+def generate_instances(env_specs: Sequence[EnvSpec], global_seed: int) -> List[EnvInstance]:
+    instances: List[EnvInstance] = []
+    for index, spec in enumerate(env_specs):
+        rng = default_rng(SeedSequence([global_seed, index]))
+        seeds: set[int] = set()
+        attempts = 0
+        while len(seeds) < spec.num_instances:
+            if attempts >= spec.search_limit:
+                raise RuntimeError(
+                    f"Could not sample {spec.num_instances} instances for {spec.name} within search limit"
+                )
+            seed = int(rng.integers(0, 2**32, dtype=np.uint32))
+            attempts += 1
+            if seed in seeds:
+                continue
+            seeds.add(seed)
+            instances.append(EnvInstance(spec=spec, seed=seed))
+    return instances
+
+
+def records_from_instances(instances: Sequence[EnvInstance]) -> List[dict]:
+    return [
+        {
+            "spec_name": inst.spec.name,
+            "seed": int(inst.seed),
+        }
+        for inst in instances
+    ]
 
 
 def load_iterated_incoherence_config(path: Path) -> IteratedIncoherenceConfig:
@@ -516,6 +549,8 @@ __all__ = [
     "load_misalignment_config",
     "load_effective_horizon_dataset",
     "instances_from_records",
+    "generate_instances",
+    "records_from_instances",
     "IteratedIncoherenceConfig",
     "load_iterated_incoherence_config",
     "TEMP_INCOH",

@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 from incoherence.experiments import (
-    instances_from_records,
-    load_effective_horizon_dataset,
+    generate_instances,
     load_misalignment_config,
+    records_from_instances,
 )
+from incoherence.reporting import plot_misalignment
 from incoherence.correlation_misalignment_incoherence import (
     run_alignment_vs_incoherence_suite,
 )
@@ -17,14 +18,10 @@ from incoherence.correlation_misalignment_incoherence import (
 
 def run(config_path: Path) -> Path:
     config = load_misalignment_config(config_path)
-    try:
-        dataset = load_effective_horizon_dataset(config.dataset_path)
-    except FileNotFoundError as exc:
-        raise SystemExit(
-            f"Effective horizon dataset not found at {config.dataset_path}. "
-            "Run experiments/effective_horizon.py first."
-        ) from exc
-    instances = instances_from_records(dataset, config.env_specs)
+    instances = generate_instances(config.env_specs, config.global_seed)
+    records = records_from_instances(instances)
+    config.dataset_path.parent.mkdir(parents=True, exist_ok=True)
+    config.dataset_path.write_text(json.dumps(records, indent=2))
     results = run_alignment_vs_incoherence_suite(
         instances,
         temperatures=config.temperatures,
@@ -43,6 +40,7 @@ def run(config_path: Path) -> Path:
             ])
     print(f"Saved misalignment results to {output_path}")
     print(f"Saved misalignment summary to {csv_path}")
+    plot_misalignment(results, config.results_dir / "misalignment_vs_incoherence.png")
     return output_path
 
 

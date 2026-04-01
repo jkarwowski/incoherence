@@ -30,6 +30,14 @@ All experiments are driven by YAML configuration files stored in `configs/`. The
 
   Generates trajectories of κδ as the control-as-inference update 𝒢 is applied repeatedly, illustrating the monotonic decrease predicted in deterministic settings and the non-monotonic behaviour in stochastic ones.
 
+- **Strong return improvement lemma**
+
+  ```bash
+  uv run python experiments/strong_return_improvement.py --dataset results/iterated_incoherence.json
+  ```
+
+  Visualises the monotonic growth of returns guaranteed by the strong return improvement lemma using the cached trajectories from the iterated incoherence study.
+
 - **Full artifact regeneration** (runs both studies and produces tables/figures used in the paper):
 
   ```bash

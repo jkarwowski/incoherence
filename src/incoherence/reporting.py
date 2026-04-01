@@ -103,7 +103,7 @@ def plot_effective_horizon(
         mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
         mappable.set_array(sizes)
         cbar = plt.colorbar(mappable, ax=ax)
-        cbar.set_label("State-action slots")
+        cbar.set_label("MDP size")
         fig = ax.get_figure()
         fig.tight_layout()
         fig.savefig(out_path)

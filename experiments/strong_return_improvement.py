@@ -3,91 +3,153 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from incoherence.distributions import bernoulli
+from incoherence.experiments import (
+    StrongReturnConfig,
+    generate_instances,
+    load_strong_return_config,
+)
+from incoherence.mdp import compute_J, create_random_mdp, make_uniform_policy
+from incoherence.training import iterate_G
 
-def _load_records(dataset_path: Path) -> list[dict]:
-    if not dataset_path.exists():
-        raise SystemExit(
-            f"Strong return improvement dataset not found at {dataset_path}. "
-            "Run experiments/iterated_incoherence.py first."
+MIN_REWARD_PROB = 1e-3
+
+def _clip_reward_support(mdp) -> None:
+    for state in mdp.states:
+        actions = mdp.rewards[state]
+        if not actions:
+            continue
+        for action, reward_dist in actions.items():
+            prob = float(reward_dist.dist[1])
+            prob = float(np.clip(prob, MIN_REWARD_PROB, 1.0 - MIN_REWARD_PROB))
+            mdp.rewards[state][action] = bernoulli(prob)
+
+
+def _return_history(mdp, max_iterations: int) -> List[float]:
+    policies = iterate_G(mdp, make_uniform_policy(mdp), max_iterations)
+    return [float(compute_J(mdp, policy)) for policy in policies]
+
+
+def _collect_trajectories(specs: Iterable, global_seed: int, max_iterations: int) -> List[dict]:
+    trajectories: List[dict] = []
+    instances = generate_instances(specs, global_seed)
+    for inst in instances:
+        mdp = create_random_mdp(
+            inst.spec.num_actions,
+            inst.spec.horizon,
+            deterministic_transitions=inst.spec.deterministic,
+            seed=inst.seed,
         )
-    return json.loads(dataset_path.read_text())
+        _clip_reward_support(mdp)
+        trajectories.append(
+            {
+                "spec_name": inst.spec.name,
+                "deterministic": inst.spec.deterministic,
+                "seed": inst.seed,
+                "return_history": _return_history(mdp, max_iterations),
+            }
+        )
+    return trajectories
 
 
-def _gather_series(records: Iterable[dict]) -> Dict[str, np.ndarray]:
-    grouped: Dict[str, list[np.ndarray]] = {"deterministic": [], "stochastic": []}
+def _split_records(records: Iterable[dict]) -> Dict[str, List[np.ndarray]]:
+    grouped: Dict[str, List[np.ndarray]] = {"deterministic": [], "stochastic": []}
     for record in records:
         key = "deterministic" if record.get("deterministic") else "stochastic"
         grouped[key].append(np.asarray(record["return_history"], dtype=float))
-    return {k: np.vstack(v) for k, v in grouped.items() if v}
+    return {k: v for k, v in grouped.items() if v}
 
 
-def _plot_return_improvement(series: Dict[str, np.ndarray], output_path: Path) -> None:
+def _plot_family(trajectories: List[np.ndarray], title: str, cmap_name: str, output_path: Path) -> None:
+    if not trajectories:
+        return
+    steps = np.arange(trajectories[0].shape[0])
+    cmap = plt.get_cmap(cmap_name)
+    shades = np.linspace(0.35, 0.9, len(trajectories))
     fig, ax = plt.subplots(figsize=(6, 4))
-    styles = {
-        "deterministic": {"color": "C0", "linestyle": "-", "label": "Deterministic"},
-        "stochastic": {"color": "C1", "linestyle": "--", "label": "Stochastic"},
-    }
-
-    for key, data in series.items():
-        iterations = np.arange(data.shape[1])
-        mean = data.mean(axis=0)
-        std = data.std(axis=0)
-        style = styles.get(key, {})
-        ax.plot(iterations, mean, marker="o", linewidth=2, **style)
-        ax.fill_between(
-            iterations,
-            mean - std,
-            mean + std,
-            color=style.get("color", "C0"),
-            alpha=0.2,
+    for shade, series in zip(shades, trajectories):
+        ax.plot(
+            steps,
+            series,
+            marker="o",
+            linewidth=2,
+            color=cmap(shade),
+            alpha=0.95,
         )
-
     ax.set_xlabel("Iteration")
     ax.set_ylabel(r"Return $J(\pi_k)$")
-    ax.set_title("Strong return improvement lemma")
+    ax.set_title(title)
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="best", fontsize="small")
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
 
 
-def run(dataset_path: Path, output_path: Path) -> Path:
-    records = _load_records(dataset_path)
-    series = _gather_series(records)
-    if not series:
-        raise SystemExit("Dataset does not contain any return trajectories to plot.")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    _plot_return_improvement(series, output_path)
-    return output_path
+def run(config: StrongReturnConfig, output_path: Path) -> Dict[str, Path]:
+    deterministic_records = _collect_trajectories(
+        config.deterministic_specs, config.global_seed, config.max_iterations
+    )
+    stochastic_records = _collect_trajectories(
+        config.stochastic_specs, config.global_seed, config.max_iterations
+    )
+    all_records = deterministic_records + stochastic_records
+    if not all_records:
+        raise SystemExit("No trajectories collected; check configuration.")
+
+    dataset_path = config.results_dir / "strong_return_improvement.json"
+    dataset_path.write_text(json.dumps(all_records, indent=2))
+
+    trajectories = _split_records(all_records)
+    paths: Dict[str, Path] = {}
+    if "deterministic" in trajectories:
+        det_path = output_path.with_name("strong_return_improvement_deterministic.png")
+        _plot_family(
+            trajectories["deterministic"],
+            "Strong return improvement (deterministic)",
+            "Blues",
+            det_path,
+        )
+        paths["deterministic"] = det_path
+    if "stochastic" in trajectories:
+        sto_path = output_path.with_name("strong_return_improvement_stochastic.png")
+        _plot_family(
+            trajectories["stochastic"],
+            "Strong return improvement (stochastic)",
+            "Oranges",
+            sto_path,
+        )
+        paths["stochastic"] = sto_path
+    return paths
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Strong return improvement visualisation")
     parser.add_argument(
-        "--dataset",
+        "--config",
         type=Path,
-        default=Path("results/iterated_incoherence.json"),
-        help="Path to the iterated incoherence dataset (JSON).",
+        default=Path("configs/strong_return_improvement.yaml"),
+        help="Path to the strong return improvement config.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("results/strong_return_improvement.png"),
-        help="Destination for the output plot.",
+        default=Path("results/strong_return_improvement_deterministic.png"),
+        help="Base output path for deterministic plot (stochastic plot shares directory).",
     )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    output_path = run(args.dataset, args.output)
-    print(f"Saved strong return improvement figure to {output_path}")
+    config = load_strong_return_config(args.config)
+    paths = run(config, args.output)
+    for kind, path in paths.items():
+        print(f"Saved {kind} strong return improvement figure to {path}")
 
 
 if __name__ == "__main__":

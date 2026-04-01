@@ -475,6 +475,7 @@ def print_effective_horizon_summary(record: EffectiveHorizonRecord) -> None:
 def save_effective_horizon_data(path: Path, records: List[EffectiveHorizonRecord]) -> None:
     serialisable = [record.as_dict() for record in records]
     path.write_text(json.dumps(serialisable, indent=2))
+    print(f"Saved effective horizon dataset to {path}")
 
 
 def main() -> None:

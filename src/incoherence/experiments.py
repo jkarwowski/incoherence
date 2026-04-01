@@ -107,6 +107,16 @@ class IteratedIncoherenceConfig:
     deltas: Sequence[float] | None = None
 
 
+@dataclass(frozen=True)
+class StrongReturnConfig:
+    deterministic_specs: Sequence[EnvSpec]
+    stochastic_specs: Sequence[EnvSpec]
+    max_iterations: int
+    temperature: float
+    global_seed: int
+    results_dir: Path
+
+
 def _parse_env_specs(raw_specs: Iterable[Mapping]) -> List[EnvSpec]:
     specs: List[EnvSpec] = []
     for raw in raw_specs:
@@ -241,6 +251,25 @@ def load_iterated_incoherence_config(path: Path) -> IteratedIncoherenceConfig:
         global_seed=global_seed,
         results_dir=results_dir,
         deltas=deltas,
+    )
+
+
+def load_strong_return_config(path: Path) -> StrongReturnConfig:
+    data = yaml.safe_load(path.read_text())
+    deterministic_specs = _parse_env_specs(data.get("deterministic_envs", []))
+    stochastic_specs = _parse_env_specs(data.get("stochastic_envs", []))
+    max_iterations = int(data.get("max_iterations", 5))
+    temperature = float(data.get("temperature", 1.0))
+    global_seed = int(data.get("global_seed", 0))
+    results_dir = _resolve_path(data.get("results_dir"), DEFAULT_RESULTS_DIR)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    return StrongReturnConfig(
+        deterministic_specs=deterministic_specs,
+        stochastic_specs=stochastic_specs,
+        max_iterations=max_iterations,
+        temperature=temperature,
+        global_seed=global_seed,
+        results_dir=results_dir,
     )
 
 
@@ -553,6 +582,8 @@ __all__ = [
     "records_from_instances",
     "IteratedIncoherenceConfig",
     "load_iterated_incoherence_config",
+    "StrongReturnConfig",
+    "load_strong_return_config",
     "TEMP_INCOH",
     "Result",
     "run_compute_prob_over_trajectories",

@@ -33,10 +33,10 @@ All experiments are driven by YAML configuration files stored in `configs/`. The
 - **Strong return improvement lemma**
 
   ```bash
-  uv run python experiments/strong_return_improvement.py --dataset results/iterated_incoherence.json
+  uv run python experiments/strong_return_improvement.py --config configs/strong_return_improvement.yaml
   ```
 
-  Visualises the monotonic growth of returns guaranteed by the strong return improvement lemma using the cached trajectories from the iterated incoherence study.
+  Samples fresh deterministic and stochastic environments (per the config) and plots representative return trajectories illustrating the strong return improvement lemma.
 
 - **Full artifact regeneration** (runs both studies and produces tables/figures used in the paper):
 

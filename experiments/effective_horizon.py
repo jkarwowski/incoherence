@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from incoherence.experiments import EffectiveHorizonConfig, load_effective_horizon_config
+from incoherence.experiments import EffectiveHorizonConfig, load_effective_horizon_config, load_effective_horizon_dataset
 from incoherence.experiment_horizon_monte_carlo import (
     collect_effective_horizon_data,
     save_effective_horizon_data,
@@ -18,19 +18,22 @@ from incoherence.reporting import (
 
 
 def run(config: EffectiveHorizonConfig) -> Path:
-    records = collect_effective_horizon_data(
-        env_specs=config.env_specs,
-        settings=config.settings,
-        temperature=config.temperature,
-        global_seed=config.global_seed,
-        verbose=True,
-    )
     output_path = config.results_dir / "effective_horizon.json"
-    save_effective_horizon_data(output_path, records)
-
-    record_dicts = records_to_dicts(records)
-    summary_path = config.results_dir / "effective_horizon_summary.csv"
-    write_effective_horizon_summary(summary_path, record_dicts)
+    if not output_path.exists():
+        records = collect_effective_horizon_data(
+            env_specs=config.env_specs,
+            settings=config.settings,
+            temperature=config.temperature,
+            global_seed=config.global_seed,
+            verbose=True,
+        )
+        save_effective_horizon_data(output_path, records)
+        print(f"Saved effective horizon dataset to {output_path}")
+        record_dicts = records_to_dicts(records)
+        summary_path = config.results_dir / "effective_horizon_summary.csv"
+        write_effective_horizon_summary(summary_path, record_dicts)
+    else:
+        record_dicts = load_effective_horizon_dataset(output_path)
 
     size_metric = {}
     complexity = {}
@@ -77,8 +80,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     config = load_effective_horizon_config(args.config)
-    output_path = run(config)
-    print(f"Saved effective horizon dataset to {output_path}")
+    run(config)
 
 
 if __name__ == "__main__":

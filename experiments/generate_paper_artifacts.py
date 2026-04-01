@@ -14,7 +14,8 @@ FIGURE_SOURCES = {
     "iterated_incoherence_stochastic.png": Path("results/iterated_incoherence_stochastic.png"),
     "corollary_5_10.png": Path("results/corollary_5_10.png"),
     "corollary_5_11.png": Path("results/corollary_5_11.png"),
-    "strong_return_improvement.png": Path("results/strong_return_improvement.png"),
+    "strong_return_improvement_deterministic.png": Path("results/strong_return_improvement_deterministic.png"),
+    "strong_return_improvement_stochastic.png": Path("results/strong_return_improvement_stochastic.png"),
 }
 
 DATA_SOURCES = {
@@ -24,6 +25,7 @@ DATA_SOURCES = {
     "misalignment_summary.csv": Path("results/misalignment_summary.csv"),
     "misalignment_instances.json": Path("results/misalignment_instances.json"),
     "iterated_incoherence.json": Path("results/iterated_incoherence.json"),
+    "strong_return_improvement.json": Path("results/strong_return_improvement.json"),
 }
 
 

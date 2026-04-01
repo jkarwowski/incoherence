@@ -147,9 +147,9 @@ def _plot_corollaries(results: List[dict], config) -> None:
     fig_delta, ax_delta = plt.subplots(figsize=(6, 4))
     cmap = plt.get_cmap("Blues")
     norm = colors.Normalize(vmin=min(deltas), vmax=max(deltas))
-    for delta in sorted(deltas, reverse=True):
+    for delta in sorted(deltas):
         kappas = [_kappa(mdp, policy, delta) for policy in policies]
-        shade = 0.2 + 0.8 * norm(delta)
+        shade = 1-(0.5 * norm(delta))
         ax_delta.plot(
             iterations,
             kappas,
@@ -160,9 +160,9 @@ def _plot_corollaries(results: List[dict], config) -> None:
         )
     ax_delta.set_xlabel("Iteration")
     ax_delta.set_ylabel(r"Incoherence $\kappa_\delta$")
-    ax_delta.set_title("Corollary 5.11: temperature vs. iterations")
+    # ax_delta.set_title("Corollary 5.11: temperature vs. iterations")
     ax_delta.grid(True, alpha=0.3)
-    ax_delta.legend(loc="best", fontsize="small")
+    ax_delta.legend(loc="best", fontsize="small", title="Temperature")
     fig_delta.tight_layout()
     fig_delta.savefig(config.results_dir / "corollary_5_11.png")
     plt.close(fig_delta)

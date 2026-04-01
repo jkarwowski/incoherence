@@ -90,15 +90,19 @@ def plot_effective_horizon(
     cmap = _truncated_blues()
     color_values = cmap(norm(sizes))
 
-    def _scatter(ax, ys, ylabel, title, out_path):
+    def _scatter(ax, ys, ylabel, _title, out_path):
         ax.scatter(xs, ys, c=color_values, alpha=0.85, edgecolor="none")
         slope, intercept = np.polyfit(xs, ys, 1)
         x_line = np.linspace(xs.min(), xs.max(), 200)
-        ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", label=f"slope={slope:.3f}")
+        corr = np.corrcoef(xs, ys)[0, 1]
+        if np.isnan(corr):
+            label = f"slope={slope:.3f}"
+        else:
+            label = f"slope={slope:.3f}, corr={corr:.3f}"
         ax.set_xlabel("Estimated effective horizon $\\hat{H}$")
         ax.set_ylabel(ylabel)
-        ax.set_title(title)
         ax.grid(True, alpha=0.3)
+        ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", label=label)
         ax.legend(loc="best", fontsize="small")
         mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
         mappable.set_array(sizes)
@@ -106,7 +110,7 @@ def plot_effective_horizon(
         cbar.set_label("MDP size")
         fig = ax.get_figure()
         fig.tight_layout()
-        fig.savefig(out_path)
+        fig.savefig(out_path, dpi=300)
         plt.close(fig)
 
     fig_u, ax_u = plt.subplots(figsize=(6, 4))
@@ -154,7 +158,7 @@ def plot_effective_horizon_complexity(
     slots = np.array(slots)
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True)
-    for ax, ys, title in zip(
+    for ax, ys, _title in zip(
         axes,
         (states, actions, slots),
         ("Number of states", "Number of actions", "State-action slots"),
@@ -163,14 +167,13 @@ def plot_effective_horizon_complexity(
         slope, intercept = np.polyfit(xs, ys, 1)
         x_line = np.linspace(xs.min(), xs.max(), 200)
         ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", linewidth=1.0)
-        ax.set_title(title)
         ax.grid(True, alpha=0.3)
     axes[0].set_xlabel("Estimated effective horizon $\\hat{H}$")
     axes[0].set_ylabel("Count")
     for ax in axes[1:]:
         ax.set_xlabel("Estimated effective horizon $\\hat{H}$")
     fig.tight_layout()
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
 
 
@@ -231,9 +234,35 @@ def plot_misalignment(results: List[dict], path: Path) -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Temperature")
     ax.set_ylabel("Correlation (misalignment vs. incoherence)")
-    ax.set_title("Policy misalignment vs. incoherence")
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="best", fontsize="small")
     fig.tight_layout()
-    fig.savefig(path)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
+
+
+def plot_misalignment_scatter(instances: List[dict], temperature: float, path: Path) -> None:
+    if not instances:
+        return
+    x = np.array([float(inst["misalignment"]) for inst in instances])
+    y = np.array([float(inst["incoherence"]) for inst in instances])
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(x, y, color="C0", alpha=0.75, edgecolor="none")
+    slope, intercept = np.polyfit(x, y, 1)
+    x_line = np.linspace(x.min(), x.max(), 200)
+    # ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", linewidth=1.5)
+    corr = np.corrcoef(x, y)[0, 1]
+    if np.isnan(corr):
+        label = f"slope={slope:.3f}"
+    else:
+        label = f"slope={slope:.3f}, corr={corr:.3f}"
+    ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", label=label)
+    ax.legend(loc="best", fontsize="small")
+    ax.set_xlabel("Policy misalignment")
+    ax.set_ylabel(r"Incoherence $\kappa_\delta$")
+    # ax.set_title(f"Misalignment vs. incoherence (temperature {temperature:g})")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=300)
+    plt.close(fig)
+    print(f"Size: {len(x)}")

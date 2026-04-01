@@ -83,10 +83,9 @@ def _plot_family(trajectories: List[np.ndarray], title: str, cmap_name: str, out
         )
     ax.set_xlabel("Iteration")
     ax.set_ylabel(r"Return $J(\pi_k)$")
-    ax.set_title(title)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
 
 

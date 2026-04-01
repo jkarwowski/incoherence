@@ -45,3 +45,24 @@ All experiments are driven by YAML configuration files stored in `configs/`. The
   ```
 
   The helper script reads the same configuration files and writes aggregate outputs under `results/`.
+
+## Figures
+
+- ![Effective horizon vs. incoherence for π₀](results/effective_horizon_vs_incoherence_uniform.png)
+  Scatter of estimated effective horizon against uniform-policy incoherence with regression fit and correlation.
+- ![Effective horizon vs. incoherence for π₁](results/effective_horizon_vs_incoherence_pi1.png)
+  Same metric after applying the conditioning operator.
+- ![Effective horizon vs. complexity](results/effective_horizon_vs_complexity.png)
+  Relationship between effective horizon and MDP size characteristics (states/actions/slots).
+- ![Policy misalignment vs. incoherence](results/misalignment_vs_incoherence.png)
+  Correlation curve across temperatures with bootstrap confidence intervals.
+- ![Misalignment vs. incoherence scatter at temperature 1](results/misalignment_vs_incoherence_temp1.png)
+  Per-environment scatter with best-fit line and correlation.
+- ![Iterated incoherence — deterministic](results/iterated_incoherence_deterministic.png) and ![Iterated incoherence — stochastic](results/iterated_incoherence_stochastic.png)
+  κ trajectories over successive applications of the control-as-inference operator.
+- ![Temperature sweep — deterministic](results/corollary_5_11.png) and ![Temperature sweep — stochastic](results/corollary_5_11_stochastic.png)
+  Incoherence decay across temperatures for a representative deterministic and stochastic MDP.
+- ![Strong return improvement diagnostics](results/corollary_5_10.png)
+  Return and ΔJ trends illustrating the strong return improvement lemma.
+- ![Strong return improvement trajectories — deterministic](results/strong_return_improvement_deterministic.png) and ![Strong return improvement trajectories — stochastic](results/strong_return_improvement_stochastic.png)
+  Representative return histories for sampled environments in each family.

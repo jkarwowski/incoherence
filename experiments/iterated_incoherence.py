@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import List
 
@@ -105,11 +106,10 @@ def _plot_histories(results: List[dict], results_dir: Path, max_iterations: int)
         ax.fill_between(iterations, mean - std, mean + std, color="C0", alpha=0.2, label="±1 std")
         ax.set_xlabel("Iteration")
         ax.set_ylabel(r"Incoherence $\kappa_\delta$")
-        ax.set_title(title)
         ax.grid(True, alpha=0.3)
         ax.legend(loc="best", fontsize="small")
         fig.tight_layout()
-        fig.savefig(path)
+        fig.savefig(path, dpi=300)
         plt.close(fig)
 
     plot_group(
@@ -125,80 +125,119 @@ def _plot_histories(results: List[dict], results_dir: Path, max_iterations: int)
 
 
 def _plot_corollaries(results: List[dict], config) -> None:
+    def _plot_temperature_series(
+        mdp,
+        policies,
+        deltas,
+        iterations,
+        path: Path,
+        cmap_name: str,
+        shade_transform,
+    ) -> None:
+        if not policies:
+            return
+        cmap = plt.get_cmap(cmap_name)
+        vmin = float(min(deltas))
+        vmax = float(max(deltas))
+        if math.isclose(vmin, vmax):
+            vmax = vmin + 1e-6
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        fig, ax = plt.subplots(figsize=(6, 4))
+        for delta in sorted(deltas):
+            kappas = [_kappa(mdp, policy, delta) for policy in policies]
+            shade = float(shade_transform(norm(delta)))
+            ax.plot(
+                iterations,
+                kappas,
+                marker="o",
+                label=f"δ={delta:g}",
+                color=cmap(shade),
+                linewidth=2,
+            )
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel(r"Incoherence $\kappa_\delta$")
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc="best", fontsize="small", title="Temperature")
+        fig.tight_layout()
+        fig.savefig(path, dpi=300)
+        plt.close(fig)
+
     deterministic_records = [r for r in results if r["deterministic"]]
-    if not deterministic_records:
-        return
-    reference = deterministic_records[0]
-    spec = reference["spec_name"]
-    seed = reference["seed"]
-    mdp = create_random_mdp(
-        reference["num_actions"],
-        reference["horizon"],
-        deterministic_transitions=True,
-        seed=seed,
-    )
-    clip_reward_support(mdp)
-
-    policies = collect_policies(mdp, config.max_iterations)
-
+    stochastic_records = [r for r in results if not r["deterministic"]]
     deltas = config.deltas or (config.temperature,)
     iterations = np.arange(config.max_iterations + 1)
 
-    fig_delta, ax_delta = plt.subplots(figsize=(6, 4))
-    cmap = plt.get_cmap("Blues")
-    norm = colors.Normalize(vmin=min(deltas), vmax=max(deltas))
-    for delta in sorted(deltas):
-        kappas = [_kappa(mdp, policy, delta) for policy in policies]
-        shade = 1-(0.5 * norm(delta))
-        ax_delta.plot(
-            iterations,
-            kappas,
-            marker="o",
-            label=f"δ={delta:g}",
-            color=cmap(shade),
-            linewidth=2,
+    if deterministic_records:
+        reference = deterministic_records[0]
+        mdp = create_random_mdp(
+            reference["num_actions"],
+            reference["horizon"],
+            deterministic_transitions=True,
+            seed=reference["seed"],
         )
-    ax_delta.set_xlabel("Iteration")
-    ax_delta.set_ylabel(r"Incoherence $\kappa_\delta$")
-    # ax_delta.set_title("Corollary 5.11: temperature vs. iterations")
-    ax_delta.grid(True, alpha=0.3)
-    ax_delta.legend(loc="best", fontsize="small", title="Temperature")
-    fig_delta.tight_layout()
-    fig_delta.savefig(config.results_dir / "corollary_5_11.png")
-    plt.close(fig_delta)
+        clip_reward_support(mdp)
+        policies = collect_policies(mdp, config.max_iterations)
+        _plot_temperature_series(
+            mdp,
+            policies,
+            deltas,
+            iterations,
+            config.results_dir / "corollary_5_11.png",
+            "Blues",
+            lambda value: 1.0 - 0.5 * value,
+        )
 
-    returns = [float(compute_J(mdp, policy)) for policy in policies]
-    delta_returns = np.diff(returns)
-    scaled = np.arange(1, len(returns)) * delta_returns
+        returns = [float(compute_J(mdp, policy)) for policy in policies]
+        delta_returns = np.diff(returns)
+        scaled = np.arange(1, len(returns)) * delta_returns
 
-    fig_return, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(6, 6), sharex=True)
+        fig_return, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(6, 6), sharex=True)
 
-    iterations_full = np.arange(len(returns))
-    ax_top.plot(iterations_full, returns, marker="o", color="C0", linewidth=2)
-    ax_top.set_ylabel("Return $J$")
-    ax_top.set_title("Corollary 5.10: Strong return improvement")
-    ax_top.grid(True, alpha=0.3)
+        iterations_full = np.arange(len(returns))
+        ax_top.plot(iterations_full, returns, marker="o", color="C0", linewidth=2)
+        ax_top.set_ylabel("Return $J$")
+        ax_top.grid(True, alpha=0.3)
 
-    steps = np.arange(1, len(returns))
-    ax_bottom.plot(steps, delta_returns, marker="s", color="C1", linewidth=2, label=r"ΔJ$_k$")
-    ax_bottom.plot(
-        steps,
-        scaled,
-        marker="^",
-        color="C2",
-        linewidth=2,
-        linestyle="--",
-        label=r"$k·ΔJ_k$",
-    )
-    ax_bottom.axhline(0.0, color="black", linestyle=":", linewidth=1.0, alpha=0.4)
-    ax_bottom.set_xlabel("Iteration $k$")
-    ax_bottom.set_ylabel("Improvement")
-    ax_bottom.grid(True, alpha=0.3)
-    ax_bottom.legend(loc="best", fontsize="small")
+        steps = np.arange(1, len(returns))
+        ax_bottom.plot(steps, delta_returns, marker="s", color="C1", linewidth=2, label=r"ΔJ$_k$")
+        ax_bottom.plot(
+            steps,
+            scaled,
+            marker="^",
+            color="C2",
+            linewidth=2,
+            linestyle="--",
+            label=r"$k·ΔJ_k$",
+        )
+        ax_bottom.axhline(0.0, color="black", linestyle=":", linewidth=1.0, alpha=0.4)
+        ax_bottom.set_xlabel("Iteration $k$")
+        ax_bottom.set_ylabel("Improvement")
+        ax_bottom.grid(True, alpha=0.3)
+        ax_bottom.legend(loc="best", fontsize="small")
 
-    fig_return.tight_layout()
-    fig_return.savefig(config.results_dir / "corollary_5_10.png")
-    plt.close(fig_return)
+        fig_return.tight_layout()
+        fig_return.savefig(config.results_dir / "corollary_5_10.png", dpi=300)
+        plt.close(fig_return)
+
+    if stochastic_records:
+        reference = stochastic_records[0]
+        mdp = create_random_mdp(
+            reference["num_actions"],
+            reference["horizon"],
+            deterministic_transitions=False,
+            seed=reference["seed"],
+        )
+        clip_reward_support(mdp)
+        policies = collect_policies(mdp, config.max_iterations)
+        _plot_temperature_series(
+            mdp,
+            policies,
+            deltas,
+            iterations,
+            config.results_dir / "corollary_5_11_stochastic.png",
+            "Oranges",
+            lambda value: 0.2 + 0.8 * value,
+        )
 
 
 def parse_args() -> argparse.Namespace:

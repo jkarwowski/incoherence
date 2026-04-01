@@ -10,10 +10,12 @@ FIGURE_SOURCES = {
     "effective_horizon_vs_incoherence_pi1.png": Path("results/effective_horizon_vs_incoherence_pi1.png"),
     "effective_horizon_vs_complexity.png": Path("results/effective_horizon_vs_complexity.png"),
     "misalignment_vs_incoherence.png": Path("results/misalignment_vs_incoherence.png"),
+    "misalignment_vs_incoherence_temp1.png": Path("results/misalignment_vs_incoherence_temp1.png"),
     "iterated_incoherence_deterministic.png": Path("results/iterated_incoherence_deterministic.png"),
     "iterated_incoherence_stochastic.png": Path("results/iterated_incoherence_stochastic.png"),
     "corollary_5_10.png": Path("results/corollary_5_10.png"),
     "corollary_5_11.png": Path("results/corollary_5_11.png"),
+    "corollary_5_11_stochastic.png": Path("results/corollary_5_11_stochastic.png"),
     "strong_return_improvement_deterministic.png": Path("results/strong_return_improvement_deterministic.png"),
     "strong_return_improvement_stochastic.png": Path("results/strong_return_improvement_stochastic.png"),
 }

@@ -49,15 +49,15 @@ All experiments are driven by YAML configuration files stored in `configs/`. The
 ## Figures
 
 - ![Effective horizon vs. incoherence for π₀](results/effective_horizon_vs_incoherence_uniform.png)
-  Scatter of estimated effective horizon against uniform-policy incoherence with regression fit and correlation.
+  Correlation r≈0.198 with 95% CI [0.033, 0.352].
 - ![Effective horizon vs. incoherence for π₁](results/effective_horizon_vs_incoherence_pi1.png)
-  Same metric after applying the conditioning operator.
+  Correlation r≈0.244 with 95% CI [0.082, 0.394].
 - ![Effective horizon vs. complexity](results/effective_horizon_vs_complexity.png)
   Relationship between effective horizon and MDP size characteristics (states/actions/slots).
 - ![Policy misalignment vs. incoherence](results/misalignment_vs_incoherence.png)
   Correlation curve across temperatures with bootstrap confidence intervals.
 - ![Misalignment vs. incoherence scatter at temperature 1](results/misalignment_vs_incoherence_temp1.png)
-  Per-environment scatter with best-fit line and correlation.
+  Per-environment scatter with r≈0.395 and 95% CI [0.245, 0.526].
 - ![Iterated incoherence — deterministic](results/iterated_incoherence_deterministic.png) and ![Iterated incoherence — stochastic](results/iterated_incoherence_stochastic.png)
   κ trajectories over successive applications of the control-as-inference operator.
 - ![Temperature sweep — deterministic](results/corollary_5_11.png) and ![Temperature sweep — stochastic](results/corollary_5_11_stochastic.png)

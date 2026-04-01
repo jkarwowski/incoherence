@@ -66,7 +66,7 @@ def plot_effective_horizon(
     size_metric: Mapping[str, float],
     path_uniform: Path,
     path_cond: Path,
-) -> None:
+) -> dict[str, tuple[float, float, float] | None]:
     xs = []
     ys_uniform = []
     ys_cond = []
@@ -90,14 +90,24 @@ def plot_effective_horizon(
     cmap = _truncated_blues()
     color_values = cmap(norm(sizes))
 
-    def _scatter(ax, ys, ylabel, _title, out_path):
+    stats: dict[str, tuple[float, float, float] | None] = {}
+
+    def _scatter(ax, ys, ylabel, series_name: str, out_path):
         ax.scatter(xs, ys, c=color_values, alpha=0.85, edgecolor="none")
         slope, intercept = np.polyfit(xs, ys, 1)
         x_line = np.linspace(xs.min(), xs.max(), 200)
         corr = np.corrcoef(xs, ys)[0, 1]
-        if np.isnan(corr):
+        n = len(xs)
+        ci = None
+        if np.isnan(corr) or n <= 3:
             label = f"slope={slope:.3f}"
         else:
+            z = np.arctanh(corr)
+            se = 1 / np.sqrt(n - 3)
+            delta = 1.96 * se
+            lower = float(np.tanh(z - delta))
+            upper = float(np.tanh(z + delta))
+            ci = (corr, lower, upper)
             label = f"slope={slope:.3f}, corr={corr:.3f}"
         ax.set_xlabel("Estimated effective horizon $\\hat{H}$")
         ax.set_ylabel(ylabel)
@@ -112,13 +122,21 @@ def plot_effective_horizon(
         fig.tight_layout()
         fig.savefig(out_path, dpi=300)
         plt.close(fig)
+        if ci is not None:
+            corr_val, lower, upper = ci
+            print(
+                f"[effective horizon {series_name}] correlation={corr_val:.4f}, 95% CI=[{lower:.4f}, {upper:.4f}]"
+            )
+        else:
+            print(f"[effective horizon {series_name}] correlation undefined (insufficient data)")
+        stats[series_name] = ci
 
     fig_u, ax_u = plt.subplots(figsize=(6, 4))
     _scatter(
         ax_u,
         ys_uniform,
         r"Incoherence $\kappa_\delta(\pi_0)$",
-        r"$\pi_0$ (uniform prior)",
+        "$\\pi_0$",
         path_uniform,
     )
 
@@ -127,9 +145,11 @@ def plot_effective_horizon(
         ax_c,
         ys_cond,
         r"Incoherence $\kappa_\delta(\pi_1)$",
-        r"$\pi_1 = \mathcal{G}(\pi_0)$",
+        "$\\pi_1$",
         path_cond,
     )
+
+    return stats
 
 
 def plot_effective_horizon_complexity(
@@ -275,11 +295,25 @@ def plot_misalignment_scatter(
     slope, intercept = np.polyfit(x, y, 1)
     x_line = np.linspace(x.min(), x.max(), 200)
     corr = np.corrcoef(x, y)[0, 1]
-    label = f"slope={slope:.3f}, r={corr:.3f}" if not np.isnan(corr) else f"slope={slope:.3f}"
+    n = len(x)
+    if not np.isnan(corr) and n > 3:
+        z = np.arctanh(corr)
+        se = 1 / np.sqrt(n - 3)
+        delta = 1.96 * se
+        lower = float(np.tanh(z - delta))
+        upper = float(np.tanh(z + delta))
+        print(
+            f"[misalignment scatter T={temperature}] correlation={corr:.4f}, 95% CI=[{lower:.4f}, {upper:.4f}]"
+        )
+        label = f"slope={slope:.3f}, corr={corr:.3f}"
+    else:
+        if np.isnan(corr):
+            print(f"[misalignment scatter T={temperature}] correlation undefined (insufficient data)")
+        label = f"slope={slope:.3f}" if np.isnan(corr) else f"slope={slope:.3f}, corr={corr:.3f}"
     ax.plot(x_line, slope * x_line + intercept, color="black", linestyle="--", label=label)
     ax.legend(loc="best", fontsize="small")
-    ax.set_xlabel("Policy misalignment (1 - alignment)")
-    ax.set_ylabel(r"Incoherence $\kappa_\delta$")
+    ax.set_xlabel("Policy misalignment")
+    ax.set_ylabel(r"Incoherence $\kappa_\delta(\pi_1)$")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=300)

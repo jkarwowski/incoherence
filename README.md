@@ -6,7 +6,7 @@ This is an implementation and numerical verification of the main results in the 
 
 Stored Bernoulli variables are auxiliary success indicators with mean `q`. The paper's reward is `r = log(q)`, and `compute_J` reports expected additive log return. `compute_success_probability` separately reports the probability that every auxiliary indicator is one. Re-conditioning improves the latter for arbitrary dynamics; additive-return improvement is guaranteed here for deterministic dynamics.
 
-Both folding variants use `log(posterior / reference_prior)`, with a shared normalization at each time step. Exact conditioning is computed backward at every state, including states not visited from the initial state. Conditioning on an impossible event keeps the input policy as a convention; the equivalence statements assume positive conditioning probability.
+Both folding variants use `log(posterior / reference_prior)`, with a shared normalization at each time step. Exact conditioning enumerates trajectories, filters for success, and extracts action marginals. For states absent from successful trajectories, it repeats these steps on rollouts starting at that state. Conditioning on an impossible event keeps the input policy as a convention; the equivalence statements assume positive conditioning probability.
 
 ## Experiments
 

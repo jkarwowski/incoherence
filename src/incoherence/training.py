@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import replace
 from math import prod
 
 import numpy as np  # type: ignore
@@ -42,24 +43,27 @@ def retrain_agent_MC(
 
 
 def retrain_agent(mdp: MDP, policy: Policy):
-    """Exact future-success conditioning at every state, including unvisited ones."""
-    success, conditioned = {}, {}
-    for state in sorted(mdp.states, key=mdp.state_time.get, reverse=True):
-        if not mdp.actions[state]:
-            success[state], conditioned[state] = 1.0, policy[state]
-            continue
-        weights = {}
-        for action in mdp.actions[state]:
-            future = 1.0 if mdp.state_time[state] >= mdp.time_horizon - 1 else sum(
-                probability * success[next_state]
-                for next_state, probability in mdp.transitions[state][action].dist.items()
+    """Collects roll-outs, filters them based on rewards, and updates the policy."""
+    trajectories = compute_prob_over_trajectories(mdp, policy)
+    filtered_trajectories = posterior_cond_R(trajectories, R=1)
+    conditioned_policy = compute_marginals(mdp, filtered_trajectories)
+
+    # For states absent from successful rollouts, condition on rollouts starting there.
+    visited_states = {state for traj in filtered_trajectories.dist for state, _, _ in traj}
+    for state in mdp.states:
+        if mdp.actions[state] and state not in visited_states:
+            suffix_mdp = replace(
+                mdp, initial_state=state,
+                time_horizon=mdp.time_horizon - mdp.state_time[state],
             )
-            weights[action] = policy[state].dist[action] * mdp.rewards[state][action].dist[1] * future
-        success[state] = sum(weights.values())
-        # Conditioning on an impossible event is undefined; preserve the prior
-        # there. The paper's equivalences assume positive conditioning mass.
-        conditioned[state] = P(weights) if success[state] > 0 else policy[state]
-    return conditioned
+            trajectories = compute_prob_over_trajectories(suffix_mdp, policy)
+            filtered_trajectories = posterior_cond_R(trajectories, R=1)
+            # If success is impossible, preserve the prior as a convention.
+            conditioned_policy[state] = (
+                compute_marginals(suffix_mdp, filtered_trajectories)[state]
+                if filtered_trajectories.dist else policy[state]
+            )
+    return conditioned_policy
 
 
 def iterate_G(mdp: MDP, policy: Policy, iterations: int) -> list[Policy]:
@@ -103,19 +107,26 @@ def fold_policy_into_reward(mdp: MDP, policy: Policy, prior: Policy | None = Non
     """Fold log(policy/prior), normalizing by a common factor at each time."""
     if prior is None:
         prior = make_uniform_policy(mdp)
-    new_rewards = defaultdict(lambda: dict())
-    potentials = {}
-    scales = defaultdict(lambda: 1.0)
+
+    # Adding log(policy/prior) to r means multiplying q = exp(r) by policy/prior.
+    probabilities = defaultdict(dict)
     for state in mdp.states:
         for action in mdp.actions[state]:
-            reference = prior[state].dist[action]
-            q = (mdp.rewards[state][action].dist[1] * policy[state].dist[action]
-                 / reference) if reference > 0 else 0.0
-            potentials[state, action] = q
-            t = mdp.state_time[state]
-            scales[t] = max(scales[t], q)
-    for (state, action), q in potentials.items():
-        new_rewards[state][action] = bernoulli(q / scales[mdp.state_time[state]])
+            if prior[state].dist[action] == 0:
+                probabilities[state][action] = 0.0
+            else:
+                probabilities[state][action] = (
+                    mdp.rewards[state][action].dist[1]
+                    * policy[state].dist[action] / prior[state].dist[action]
+                )
+
+    # One common scale per time step keeps probabilities <= 1 without changing conditioning.
+    new_rewards = defaultdict(lambda: dict())
+    for states in mdp.time_to_state().values():
+        normalizer = max([1.0] + [q for state in states for q in probabilities[state].values()])
+        for state in states:
+            for action in mdp.actions[state]:
+                new_rewards[state][action] = bernoulli(probabilities[state][action] / normalizer)
     return new_rewards
 
 

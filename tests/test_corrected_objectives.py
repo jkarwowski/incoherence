@@ -136,7 +136,7 @@ def test_future_conditioning_at_unvisited_states():
 
 
 @pytest.mark.parametrize("deterministic", [False, True])
-def test_backward_conditioning_matches_trajectory_enumeration(deterministic):
+def test_conditioning_matches_trajectory_enumeration(deterministic):
     mdp = create_random_mdp(2, 2, deterministic, seed=7)
     prior = make_uniform_policy(mdp)
     expected = compute_marginals(mdp, posterior_cond_R(compute_prob_over_trajectories(mdp, prior), 1))

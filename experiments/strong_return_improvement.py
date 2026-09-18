@@ -15,7 +15,7 @@ from incoherence.experiments import (
     generate_instances,
     load_strong_return_config,
 )
-from incoherence.mdp import compute_J, create_random_mdp, make_uniform_policy
+from incoherence.mdp import compute_success_probability, compute_J, create_random_mdp, make_uniform_policy
 from incoherence.training import iterate_G
 
 MIN_REWARD_PROB = 1e-3
@@ -31,9 +31,10 @@ def _clip_reward_support(mdp) -> None:
             mdp.rewards[state][action] = bernoulli(prob)
 
 
-def _return_history(mdp, max_iterations: int) -> List[float]:
+def _return_history(mdp, max_iterations: int) -> tuple[List[float], List[float]]:
     policies = iterate_G(mdp, make_uniform_policy(mdp), max_iterations)
-    return [float(compute_J(mdp, policy)) for policy in policies]
+    return ([float(compute_J(mdp, policy)) for policy in policies],
+            [float(compute_success_probability(mdp, policy)) for policy in policies])
 
 
 def _collect_trajectories(specs: Sequence[EnvSpec], global_seed: int, max_iterations: int) -> List[dict]:
@@ -47,12 +48,15 @@ def _collect_trajectories(specs: Sequence[EnvSpec], global_seed: int, max_iterat
             seed=inst.seed,
         )
         _clip_reward_support(mdp)
+        returns, successes = _return_history(mdp, max_iterations)
         trajectories.append(
             {
                 "spec_name": inst.spec.name,
                 "deterministic": inst.spec.deterministic,
                 "seed": inst.seed,
-                "return_history": _return_history(mdp, max_iterations),
+                "return_history": returns,
+                "success_history": successes,
+                "reward_definition": "log_q",
             }
         )
     return trajectories
@@ -62,11 +66,11 @@ def _split_records(records: Iterable[dict]) -> Dict[str, List[np.ndarray]]:
     grouped: Dict[str, List[np.ndarray]] = {"deterministic": [], "stochastic": []}
     for record in records:
         key = "deterministic" if record.get("deterministic") else "stochastic"
-        grouped[key].append(np.asarray(record["return_history"], dtype=float))
+        grouped[key].append(np.asarray(record["return_history" if record.get("deterministic") else "success_history"], dtype=float))
     return {k: v for k, v in grouped.items() if v}
 
 
-def _plot_family(trajectories: List[np.ndarray], title: str, cmap_name: str, output_path: Path) -> None:
+def _plot_family(trajectories: List[np.ndarray], title: str, cmap_name: str, output_path: Path, *, success: bool = False) -> None:
     if not trajectories:
         return
     steps = np.arange(trajectories[0].shape[0])
@@ -83,7 +87,7 @@ def _plot_family(trajectories: List[np.ndarray], title: str, cmap_name: str, out
             alpha=0.95,
         )
     ax.set_xlabel("Iteration")
-    ax.set_ylabel(r"Return $J(\pi_k)$")
+    ax.set_ylabel(r"Success probability $S(\pi_k)$" if success else r"Return $J(\pi_k)$")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(output_path, dpi=300)
@@ -119,9 +123,10 @@ def run(config: StrongReturnConfig, output_path: Path) -> Dict[str, Path]:
         sto_path = output_path.with_name("strong_return_improvement_stochastic.png")
         _plot_family(
             trajectories["stochastic"],
-            "Strong return improvement (stochastic)",
+            "Success-probability improvement (stochastic)",
             "Oranges",
             sto_path,
+            success=True,
         )
         paths["stochastic"] = sto_path
     return paths

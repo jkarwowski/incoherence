@@ -173,7 +173,7 @@ def load_misalignment_config(path: Path) -> MisalignmentConfig:
     results_dir = _resolve_path(data.get("results_dir"), DEFAULT_RESULTS_DIR)
     results_dir.mkdir(parents=True, exist_ok=True)
     dataset_path = _resolve_path(
-        data.get("dataset"), results_dir / "misalignment_instances.json"
+        data.get("dataset"), results_dir / "effective_horizon.json"
     )
     return MisalignmentConfig(
         env_specs=env_specs,
@@ -373,9 +373,7 @@ def run_fold_posterior_into_reward_orig_mdp(n: int, mdp: MDP) -> List[Result]:
     uniform = make_uniform_policy(mdp)
     results: List[Result] = [Result.new_result(name="fold_orig", step=0, mdp=orig_mdp, policy=uniform)]
     for i in range(n):
-        prob = compute_prob_over_trajectories(mdp, uniform)
-        posterior = posterior_cond_R(prob, R=1)
-        policy = compute_marginals(orig_mdp, posterior)
+        policy = retrain_agent(mdp, uniform)
         results.append(Result.new_result(name="fold_orig", step=i + 1, mdp=orig_mdp, policy=policy))
         mdp, _ = fold_posterior_into_reward(orig_mdp, mdp, uniform)
     return results

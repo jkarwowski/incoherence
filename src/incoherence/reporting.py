@@ -20,7 +20,7 @@ def write_effective_horizon_summary(path: Path, records: List[dict]) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerow(
             [
                 "spec_name",
@@ -102,11 +102,7 @@ def plot_effective_horizon(
         if np.isnan(corr) or n <= 3:
             label = f"slope={slope:.3f}"
         else:
-            z = np.arctanh(corr)
-            se = 1 / np.sqrt(n - 3)
-            delta = 1.96 * se
-            lower = float(np.tanh(z - delta))
-            upper = float(np.tanh(z + delta))
+            lower, upper = _bootstrap_ci(xs, ys)
             ci = (corr, lower, upper)
             label = f"slope={slope:.3f}, corr={corr:.3f}"
         ax.set_xlabel("Estimated effective horizon $\\hat{H}$")
@@ -297,11 +293,7 @@ def plot_misalignment_scatter(
     corr = np.corrcoef(x, y)[0, 1]
     n = len(x)
     if not np.isnan(corr) and n > 3:
-        z = np.arctanh(corr)
-        se = 1 / np.sqrt(n - 3)
-        delta = 1.96 * se
-        lower = float(np.tanh(z - delta))
-        upper = float(np.tanh(z + delta))
+        lower, upper = _bootstrap_ci(x, y)
         print(
             f"[misalignment scatter T={temperature}] correlation={corr:.4f}, 95% CI=[{lower:.4f}, {upper:.4f}]"
         )

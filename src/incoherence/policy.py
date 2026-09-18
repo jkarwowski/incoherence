@@ -46,6 +46,8 @@ def soft_Q(
 
 def soft_V(mdp: MDP, policy: Policy, state: State, t: int, soft=True) -> float:
     """Recursive computation of soft V values at time t for a given state."""
+    if not mdp.actions[state] or t >= mdp.time_horizon:
+        return 0.0
     return soft_log(
         policy[state].expectation(
             lambda action: soft_exp(soft_Q(mdp, policy, state, action, t), soft=soft)
@@ -89,10 +91,11 @@ def boltzmann_rational_policy(Q, temperature=1.0):
     """Computes the Boltzmann rational policy given Q values and a temperature."""
     policy = {}
     for state, actions_q_values in Q.items():
+        maximum = max(actions_q_values.values(), default=0.0)
         for action, q_value in actions_q_values.items():
             if state not in policy:
                 policy[state] = {}
-            policy[state][action] = np.exp(q_value / temperature)
+            policy[state][action] = np.exp((q_value - maximum) / temperature)
 
     # Normalize the policy to form a proper probability distribution
     for state in policy:

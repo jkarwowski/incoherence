@@ -19,7 +19,8 @@ from incoherence.reporting import (
 
 def run(config: EffectiveHorizonConfig) -> Path:
     output_path = config.results_dir / "effective_horizon.json"
-    if not output_path.exists():
+    cached = load_effective_horizon_dataset(output_path) if output_path.exists() else []
+    if not cached or any(r["metrics"].get("reward_definition") != "log_q" for r in cached):
         records = collect_effective_horizon_data(
             env_specs=config.env_specs,
             settings=config.settings,

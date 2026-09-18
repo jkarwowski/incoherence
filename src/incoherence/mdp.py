@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from math import prod
+from math import prod, log
 from typing import Dict, Generic, List, Mapping, Tuple, TypeVar
 
 import numpy as np  # type: ignore
@@ -56,15 +56,28 @@ def compute_J_MC(mdp: MDP, policy: Policy, num_samples=J_SAMPLES) -> float:
     total_reward = 0
     for _ in range(num_samples):
         trajectory = sample_trajectory(mdp, policy)
-        total_reward += sum(reward for _, _, reward in trajectory)
+        total_reward += sum(log_reward(mdp, state, action) for state, action, _ in trajectory)
     return total_reward / num_samples
 
 
+def log_reward(mdp: MDP, state: State, action: Action) -> float:
+    """Paper reward r=log q; stored Bernoulli outcomes are auxiliary O variables."""
+    q = mdp.rewards[state][action].dist[1]
+    return log(q) if q > 0 else -float("inf")
+
+
 def compute_J(mdp: MDP, policy: Policy) -> float:
-    """Computes J analytically"""
+    """Compute the paper's additive return E[sum log q(s_t,a_t)]."""
     trajectory_dist = compute_prob_over_trajectories(mdp, policy)
     return trajectory_dist.expectation(
-        lambda traj: sum(reward for _, _, reward in traj)
+        lambda traj: sum(log_reward(mdp, state, action) for state, action, _ in traj)
+    )
+
+
+def compute_success_probability(mdp: MDP, policy: Policy) -> float:
+    """S(pi)=P(O_1=...=O_T=1)=E[exp(sum r)], distinct from J."""
+    return compute_prob_over_trajectories(mdp, policy).expectation(
+        lambda traj: prod(outcome for _, _, outcome in traj)
     )
 
 
@@ -243,6 +256,8 @@ __all__ = [
     "State",
     "Trajectory",
     "compute_J",
+    "log_reward",
+    "compute_success_probability",
     "compute_J_MC",
     "compute_marginals",
     "compute_prob_over_trajectories",

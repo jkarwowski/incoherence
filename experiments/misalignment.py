@@ -9,7 +9,8 @@ import math
 from incoherence.mdp import create_random_mdp
 
 from incoherence.experiments import (
-    generate_instances,
+    instances_from_records,
+    load_effective_horizon_dataset,
     load_misalignment_config,
     records_from_instances,
 )
@@ -36,10 +37,11 @@ def _size_metric(env_specs, seed: int) -> dict[str, float]:
 def run(config_path: Path) -> Path:
     config = load_misalignment_config(config_path)
     size_metric = _size_metric(config.env_specs, config.global_seed)
-    instances = generate_instances(config.env_specs, config.global_seed)
+    instances = instances_from_records(
+        load_effective_horizon_dataset(config.dataset_path), config.env_specs
+    )
     records = records_from_instances(instances)
-    config.dataset_path.parent.mkdir(parents=True, exist_ok=True)
-    config.dataset_path.write_text(json.dumps(records, indent=2))
+    (config.results_dir / "misalignment_instances.json").write_text(json.dumps(records, indent=2))
     results = run_alignment_vs_incoherence_suite(
         instances,
         temperatures=config.temperatures,
@@ -48,7 +50,7 @@ def run(config_path: Path) -> Path:
     output_path.write_text(json.dumps(results, indent=2))
     csv_path = config.results_dir / "misalignment_summary.csv"
     with csv_path.open("w", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["temperature", "correlation", "num_instances"])
         for entry in results:
             writer.writerow([

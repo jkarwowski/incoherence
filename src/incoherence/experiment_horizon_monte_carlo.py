@@ -24,6 +24,7 @@ from incoherence.mdp import (
     Action,
     State,
     compute_J,
+    log_reward,
     create_random_mdp,
     make_uniform_policy,
 )
@@ -57,7 +58,7 @@ def optimal_Q_V(
                 continue
             q_s: Dict[Action, float] = {}
             for a in acts:
-                r = mdp.rewards[s][a].expectation()
+                r = log_reward(mdp, s, a)
                 trans = mdp.transitions[s][a]
                 exp_next = sum(p * V[t + 1].get(s2, 0.0) for s2, p in trans.dist.items())
                 q_s[a] = float(r + exp_next)
@@ -146,8 +147,7 @@ def simulate_gorp_once(
                 s = s_i
                 t = t_i
                 for a in seq:
-                    prob_r1 = mdp.rewards[s][a].dist[1]
-                    r = 1 if np_rng.random() < prob_r1 else 0
+                    r = log_reward(mdp, s, a)
                     total += r
                     s = deterministic_next_state(mdp, s, a)
                     t = mdp.state_time[s]
@@ -155,8 +155,7 @@ def simulate_gorp_once(
                         break
                 while t < decision_T and mdp.actions[s]:
                     a = pi_expl(t, s)
-                    prob_r1 = mdp.rewards[s][a].dist[1]
-                    r = 1 if np_rng.random() < prob_r1 else 0
+                    r = log_reward(mdp, s, a)
                     total += r
                     s = deterministic_next_state(mdp, s, a)
                     t = mdp.state_time[s]
@@ -286,6 +285,7 @@ def compute_incoherence_and_returns(mdp: MDP, temperature: float = 1.0) -> dict:
         "J_uniform": J_uniform,
         "J_piG": J_piG,
         "J_star": J_star,
+        "reward_definition": "log_q",
     }
 
 

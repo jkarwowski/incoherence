@@ -1,7 +1,7 @@
 import numpy as np  # type: ignore
 
 from .distributions import P
-from .mdp import MDP, Policy, compute_prob_over_trajectories, occupancy_measure_states_time
+from .mdp import MDP, Policy, compute_prob_over_trajectories, occupancy_measure_states_time, log_reward, compute_J
 
 
 def H(p: P):
@@ -11,9 +11,10 @@ def H(p: P):
 
 def forward_kl_divergence_P(p: P, q: P) -> float:
     """Computes the KL divergence D(p || q) for two probability distributions."""
-    eps = 1e-12
+    if any(p.dist[k] > 0 and q.dist[k] == 0 for k in p.dist):
+        return float("inf")
     return sum(
-        (p.dist[k] * np.log(p.dist[k] / max(q.dist[k], eps)))
+        (p.dist[k] * np.log(p.dist[k] / q.dist[k]))
         for k in p.dist.keys()
         if p.dist[k] != 0
     )
@@ -40,10 +41,8 @@ def compute_causal_forward_kl_divergence_belousov(mdp, policy1, policy2) -> floa
 
 
 def compute_causal_forward_kl_divergence(mdp, policy1, policy2) -> float:
-    # causal forward KL divergence of KL(p1 || p2)
-    prob_traj1 = compute_prob_over_trajectories(mdp, policy1)
-    prob_traj2 = compute_prob_over_trajectories(mdp, policy2)
-    return forward_kl_divergence_P(prob_traj1, prob_traj2)
+    # The occupancy identity avoids underflow in full-trajectory probabilities.
+    return compute_causal_forward_kl_divergence_belousov(mdp, policy1, policy2)
 
 
 def compute_J_entropy(mdp: MDP, policy: Policy) -> float:
@@ -52,7 +51,7 @@ def compute_J_entropy(mdp: MDP, policy: Policy) -> float:
     # where H is the entropy of the policy in the given state
     prob = compute_prob_over_trajectories(mdp, policy)
     return prob.expectation(
-        lambda traj: sum(reward + H(policy[state]) for state, action, reward in traj)
+        lambda traj: sum(log_reward(mdp, state, action) + H(policy[state]) for state, action, _ in traj)
     )
 
 
@@ -60,10 +59,7 @@ def compute_J_causal_entropy(mdp: MDP, policy: Policy) -> float:
     # computes J normalised with entropy
     # that is J = E_pi[sum_t r(s_t, a_t) + H(pi(a_t|s_t))]
     # where H is the entropy of the policy in the given state
-    prob = compute_prob_over_trajectories(mdp, policy)
-    return prob.expectation(
-        lambda traj: sum(reward for state, action, reward in traj)
-    ) + compute_causal_entropy(mdp, policy)
+    return compute_J(mdp, policy) + compute_causal_entropy(mdp, policy)
 
 
 __all__ = [

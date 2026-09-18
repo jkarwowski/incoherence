@@ -1,7 +1,7 @@
 results_dir: results
 global_seed: 0
 temperatures: [0.1, 0.1585, 0.2512, 0.3981, 0.6309, 1.0, 1.5849, 2.5119, 3.9811, 6.3096, 10.0]
-dataset: results/misalignment_instances.json
+dataset: results/effective_horizon.json
 env_specs:
   - name: T2_A2
     horizon: 2

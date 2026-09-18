@@ -4,7 +4,7 @@ from math import prod
 import numpy as np  # type: ignore
 
 from .distributions import P, bernoulli
-from .mdp import MDP, Policy, Rewards, compute_marginals, compute_prob_over_trajectories, posterior_cond_R, sample_trajectory
+from .mdp import MDP, Policy, Rewards, compute_marginals, compute_prob_over_trajectories, posterior_cond_R, sample_trajectory, make_uniform_policy
 
 RETRAIN_STEPS = 100
 
@@ -42,14 +42,24 @@ def retrain_agent_MC(
 
 
 def retrain_agent(mdp: MDP, policy: Policy):
-    """Collects roll-outs, filters them based on rewards, and updates the policy."""
-    trajectories = compute_prob_over_trajectories(mdp, policy)
-    filtered_trajectories = posterior_cond_R(trajectories, R=1)
-    conditioned_policy = compute_marginals(mdp, filtered_trajectories)
-
-    # new_trajectories = compute_prob_over_trajectories(mdp, conditioned_policy)
-    # retrained_policy = compute_marginals(mdp, new_trajectories)
-    return conditioned_policy
+    """Exact future-success conditioning at every state, including unvisited ones."""
+    success, conditioned = {}, {}
+    for state in sorted(mdp.states, key=mdp.state_time.get, reverse=True):
+        if not mdp.actions[state]:
+            success[state], conditioned[state] = 1.0, policy[state]
+            continue
+        weights = {}
+        for action in mdp.actions[state]:
+            future = 1.0 if mdp.state_time[state] >= mdp.time_horizon - 1 else sum(
+                probability * success[next_state]
+                for next_state, probability in mdp.transitions[state][action].dist.items()
+            )
+            weights[action] = policy[state].dist[action] * mdp.rewards[state][action].dist[1] * future
+        success[state] = sum(weights.values())
+        # Conditioning on an impossible event is undefined; preserve the prior
+        # there. The paper's equivalences assume positive conditioning mass.
+        conditioned[state] = P(weights) if success[state] > 0 else policy[state]
+    return conditioned
 
 
 def iterate_G(mdp: MDP, policy: Policy, iterations: int) -> list[Policy]:
@@ -89,29 +99,36 @@ def increase_temp(mdp: MDP, alpha=1.0) -> MDP:
     )
 
 
-def fold_policy_into_reward(mdp: MDP, policy: Policy) -> Rewards:
+def fold_policy_into_reward(mdp: MDP, policy: Policy, prior: Policy | None = None) -> Rewards:
+    """Fold log(policy/prior), normalizing by a common factor at each time."""
+    if prior is None:
+        prior = make_uniform_policy(mdp)
     new_rewards = defaultdict(lambda: dict())
-
+    potentials = {}
+    scales = defaultdict(lambda: 1.0)
     for state in mdp.states:
         for action in mdp.actions[state]:
-            new_rewards[state][action] = bernoulli(
-                mdp.rewards[state][action].dist[1] * policy[state].dist[action]
-            )
+            reference = prior[state].dist[action]
+            q = (mdp.rewards[state][action].dist[1] * policy[state].dist[action]
+                 / reference) if reference > 0 else 0.0
+            potentials[state, action] = q
+            t = mdp.state_time[state]
+            scales[t] = max(scales[t], q)
+    for (state, action), q in potentials.items():
+        new_rewards[state][action] = bernoulli(q / scales[mdp.state_time[state]])
     return new_rewards
 
 
 def fold_posterior_into_reward(
     orig_mdp: MDP, mdp: MDP, policy: Policy
 ):
-    prob = compute_prob_over_trajectories(mdp, policy)
-    posterior = posterior_cond_R(prob, R=1)
-    marginals = compute_marginals(mdp, posterior)
+    marginals = retrain_agent(mdp, policy)
 
     return MDP(
         orig_mdp.states,
         orig_mdp.actions,
         orig_mdp.transitions,
-        fold_policy_into_reward(orig_mdp, marginals),
+        fold_policy_into_reward(orig_mdp, marginals, policy),
         orig_mdp.state_time,
         orig_mdp.time_horizon,
         orig_mdp.initial_state,

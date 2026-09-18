@@ -23,6 +23,7 @@ from incoherence.mdp import (
     make_uniform_policy,
     occupancy_measure_states_time,
     compute_J,
+    log_reward,
 )
 from incoherence.policy import boltzmann_incoherence_causal
 from incoherence.training import retrain_agent
@@ -52,7 +53,7 @@ def compute_q_v_pi(
 
             q_s: Dict[Action, float] = {}
             for a in acts:
-                r = float(mdp.rewards[s][a].expectation())
+                r = log_reward(mdp, s, a)
                 p_next = mdp.transitions[s][a]
 
                 def v_next(s2: State) -> float:
@@ -88,7 +89,7 @@ def compute_q_v_star(mdp: MDP) -> Tuple[Dict[State, Dict[Action, float]], Dict[S
             best_q = -float("inf")
             q_s: Dict[Action, float] = {}
             for a in acts:
-                r = float(mdp.rewards[s][a].expectation())
+                r = log_reward(mdp, s, a)
                 p_next = mdp.transitions[s][a]
 
                 def v_next(s2: State) -> float:
